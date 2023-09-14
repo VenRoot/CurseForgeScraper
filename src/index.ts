@@ -1,4 +1,5 @@
 import Scraper from "./Scraper";
+import fs from "fs";
 
 const baseURL = "https://curseforge.com";
 const path = "/api/v1/mods/search?";
@@ -12,117 +13,154 @@ const parameters: Record<string, string> = {
 
 };
 
+if(!fs.existsSync("./config.json"))
+{
+    console.log("Please create a config.json file with your mods");
+    if(fs.existsSync("./config.example.json")) {
+        console.log("A config.example.json file is provided as an example");
+        console.log("Please edit it and rename it to config.json");
+    }
+    else {
+        console.log("No config.example.json file found");
+        console.log("A config example will be created...");
+        fs.writeFileSync("./config.example.json", JSON.stringify({
+            "mods": [
+                "mod1",
+                "mod2"
+            ]
+        }, null, 2));
+    }
+    process.exit(1);
+}
 
+const file = fs.readFileSync("./config.json").toString();
+let mods: {mods: string[]};
+try {
+    mods = JSON.parse(file) as {mods: string[]};
+}
+catch(err) {
+    console.log("Invalid config.json file");
+    console.log("Please make sure it is valid JSON");
+    process.exit(1);
+}
 
-const modNames = [
-    "ambient sound 5",
-    "auditory",
-    "better biome blend",
-    "effective",
-    "enhanced visuals",
-    "extra sounds",
-    "fabric seasons",
-    "blur",
-    "falling leaves",
-    "illuminations",
-    "immersive weathering",
-    "lambda better grass",
-    "more mob variants",
-    "presence footsteps",
-    "sound physics remastered",
-    "vanilla tweaks",
-    "more axolotl variants",
-    "visuality",
-    "advancement plaques",
-    "anvil restoration",
-    "apple skin",
-    "areas",
-    "axolotl bucket fix",
-    "basic shields",
-    "bedspreads",
-    "better advancements",
-    "better animations collection",
-    "better statistics screen",
-    "better third person",
-    "better tridents",
-    "camera overhaul",
-    "camera utils",
-    "comforts",
-    "connectible chains",
-    "customizable elytra",
-    "damage tilt",
-    "deepslate cutting",
-    "diagonal fences",
-    "display case",
-    "easy anvils",
-    "easy magic",
-    "eating animation",
-    "emerald apple",
-    "enchantment descriptions",
-    "first-person model",
-    "gilded armor",
-    "herds panic",
-    "inmis",
-    "inmis addon",
-    "inventory profiles next",
-    "inv mode",
-    "iron bows",
-    "leaves be gone",
-    "mod name tooltip",
-    "more banner features",
-    "mouse wheelie",
-    "not enough animations",
-    "physics mod pro",
-    "random village names",
-    "repurposed structures",
-    "right click harvest",
-    "ruined equipment",
-    "shulker box tooltip",
-    "skinned lanterns",
-    "smooth swapping",
-    "soul fired",
-    "terralith",
-    "nyf's spiders",
-    "tooltip rareness",
-    "trinkets",
-    "universal bone meal",
-    "village bell recipe",
-    "villager names",
-    "void totem",
-    "ydm's weapon master",
-    "yung's extras",
-    "yung's better dungeons",
-    "yung's better mineshafts",
-    "yung's better strongholds",
-    "cherished worlds",
-    "cloth config api",
-    "cherished worlds",
-    "collective",
-    "continuity",
-    "creative core",
-    "creative fly",
-    "dashloader",
-    "fabric api",
-    "fabric language kotlin",
-    "fabric shield lib",
-    "ferrite core",
-    "forge config api port",
-    "iceberg",
-    "indium",
-    "iris",
-    "jam lib",
-    "kiwi",
-    "lazydfu",
-    "lib ipn",
-    "lithium",
-    "mod menu",
-    "moonlight lib",
-    "paxi",
-    "puzzles lib",
-    "replay mod",
-    "sodium",
-    "yung's api"
-];
+if(!mods.mods || !Array.isArray(mods.mods)) {
+    console.log("Invalid config.json file");
+    console.log("Please make sure it is valid JSON and refer to the example file");
+    process.exit(1);
+}
+
+const modNames = JSON.parse(fs.readFileSync("./config.json").toString()).mods;
+
+// const modNames = [
+//     "ambient sound 5",
+//     "auditory",
+//     "better biome blend",
+//     "effective",
+//     "enhanced visuals",
+//     "extra sounds",
+//     "fabric seasons",
+//     "blur",
+//     "falling leaves",
+//     "illuminations",
+//     "immersive weathering",
+//     "lambda better grass",
+//     "more mob variants",
+//     "presence footsteps",
+//     "sound physics remastered",
+//     "vanilla tweaks",
+//     "more axolotl variants",
+//     "visuality",
+//     "advancement plaques",
+//     "anvil restoration",
+//     "apple skin",
+//     "areas",
+//     "axolotl bucket fix",
+//     "basic shields",
+//     "bedspreads",
+//     "better advancements",
+//     "better animations collection",
+//     "better statistics screen",
+//     "better third person",
+//     "better tridents",
+//     "camera overhaul",
+//     "camera utils",
+//     "comforts",
+//     "connectible chains",
+//     "customizable elytra",
+//     "damage tilt",
+//     "deepslate cutting",
+//     "diagonal fences",
+//     "display case",
+//     "easy anvils",
+//     "easy magic",
+//     "eating animation",
+//     "emerald apple",
+//     "enchantment descriptions",
+//     "first-person model",
+//     "gilded armor",
+//     "herds panic",
+//     "inmis",
+//     "inmis addon",
+//     "inventory profiles next",
+//     "inv mode",
+//     "iron bows",
+//     "leaves be gone",
+//     "mod name tooltip",
+//     "more banner features",
+//     "mouse wheelie",
+//     "not enough animations",
+//     "physics mod pro",
+//     "random village names",
+//     "repurposed structures",
+//     "right click harvest",
+//     "ruined equipment",
+//     "shulker box tooltip",
+//     "skinned lanterns",
+//     "smooth swapping",
+//     "soul fired",
+//     "terralith",
+//     "nyf's spiders",
+//     "tooltip rareness",
+//     "trinkets",
+//     "universal bone meal",
+//     "village bell recipe",
+//     "villager names",
+//     "void totem",
+//     "ydm's weapon master",
+//     "yung's extras",
+//     "yung's better dungeons",
+//     "yung's better mineshafts",
+//     "yung's better strongholds",
+//     "cherished worlds",
+//     "cloth config api",
+//     "cherished worlds",
+//     "collective",
+//     "continuity",
+//     "creative core",
+//     "creative fly",
+//     "dashloader",
+//     "fabric api",
+//     "fabric language kotlin",
+//     "fabric shield lib",
+//     "ferrite core",
+//     "forge config api port",
+//     "iceberg",
+//     "indium",
+//     "iris",
+//     "jam lib",
+//     "kiwi",
+//     "lazydfu",
+//     "lib ipn",
+//     "lithium",
+//     "mod menu",
+//     "moonlight lib",
+//     "paxi",
+//     "puzzles lib",
+//     "replay mod",
+//     "sodium",
+//     "yung's api"
+// ];
 
 
 

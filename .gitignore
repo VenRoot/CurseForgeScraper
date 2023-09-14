@@ -1,5 +1,8 @@
 /mods.json
-
+/config.json
+/bin
+/test
+/out
 # Logs
 logs
 *.log

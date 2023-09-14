@@ -3,8 +3,10 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
+  "bin": "./bin/index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build:win": "tsc && pkg . -t latest-windows-x64 --output bin/curseforgescraper.exe",
+    "build:lin": "tsc && pkg . -t latest-linux-x64 --output bin/curseforgescraper"
   },
   "keywords": [],
   "author": "",
