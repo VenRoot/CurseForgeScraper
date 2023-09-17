@@ -31,3 +31,4 @@ jobs:
         git config --local user.name "GitHub Action"
         git tag "v${{ steps.package_version.outputs.version }}"
         git push --tags
+        git push https://${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }} --tags
