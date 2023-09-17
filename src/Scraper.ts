@@ -30,7 +30,7 @@ export default class Scraper {
     });
   }
 
-  private getAllGameVersions(data: ModResponse): string[] {
+  private getGameVersionsFromResponse(data: ModResponse): string[] {
     let gameVersionsSet: Set<string> = new Set();
   
     for (const recentFile of data.data[0].websiteRecentFiles) {
@@ -61,7 +61,7 @@ export default class Scraper {
           return;
         }
 
-        let gameVersions = this.getAllGameVersions(json);
+        let gameVersions = this.getGameVersionsFromResponse(json);
 
         const mod: ModInfo = {
           name: json.data[0].name,

@@ -1,13 +1,13 @@
 {
   "name": "curseforgescraper",
-  "version": "1.0.0",
+  "version": "0.5-rc1",
   "description": "",
   "main": "index.js",
   "bin": "./bin/index.js",
   "scripts": {
-    "build:win": "tsc && pkg . -t latest-windows-x64 --output bin/curseforgescraper.exe",
-    "build:win_comp": "tsc && pkg . -t latest-windows-x64 --output bin/curseforgescraper.gzip.exe -C gzip",
-    "build:lin": "tsc && pkg . -t latest-linux-x64 --output bin/curseforgescraper"
+    "build:win": "tsc && pkg . -t latest-windows-x64 --output dist/win/curseforgescraper.exe",
+    "build:win_comp": "tsc && pkg . -t latest-windows-x64 --output dist/win/curseforgescraper.gzip.exe -C gzip",
+    "build:lin": "tsc && pkg . -t latest-linux-x64 --output dist/linux/curseforgescraper"
   },
   "keywords": [],
   "author": "",
