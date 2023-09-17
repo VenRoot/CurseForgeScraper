@@ -5,23 +5,24 @@ export default class Scraper {
   private baseURL: string;
   private path: string;
   private parameters: Record<string, string>;
-  private modNames: string[];
   public URLs: string[];
   private gameVersions: string[];
+  private useId: boolean;
 
   constructor(
     baseURL: string,
     path: string,
     parameters: Record<string, string>,
     modNames: string[],
-    gameVersions: string[]
+    gameVersions: string[],
+    useId = false
   ) {
     this.baseURL = baseURL;
     this.path = path;
     this.parameters = parameters;
-    this.modNames = modNames;
     this.URLs = [];
     this.gameVersions = gameVersions;
+    this.useId = useId;
 
     modNames.forEach((modName) => {
       const parameter: Record<string, string> = {
@@ -53,6 +54,58 @@ export default class Scraper {
     }
   
     return Array.from(gameVersionsSet);
+  }
+
+  public async findAllMods(modIDs: string[]) {
+    const parameters: Record<string, string> = {
+      "gameId": "432", // 432 = Minecraft
+      "classId": "6", //Only show mods
+      "index": "0",
+      "pageSize": "50",
+      "sortField": "1" 
+    };
+
+    const results = [] as {modId: number, found: boolean}[];
+    for(const modId of modIDs) {
+      results.push({modId: parseInt(modId), found: false});
+    }
+
+    const params = new URLSearchParams(parameters);
+    const mods = [] as ModInfo[];
+    console.log("Fetching all mods... this may take a while");
+    while(results.some((result) => !result.found)) {
+      const response = await fetch(this.baseURL + this.path + params.toString());
+      const json = (await response.json()) as ModResponse;
+      if(json.data === undefined) {
+        // End of results
+        break;
+      }
+      else {
+        console.log(json.pagination.index);
+        json.data.find(mod => {
+          const result = results.find(result => result.modId === mod.id);
+          if(result !== undefined) {
+            result.found = true;
+            mods.push({
+              name: mod.name,
+              id: mod.id,
+              gameVersions: this.getGameVersionsFromResponse(json),
+              url: "https://www.curseforge.com/minecraft/mc-mods/"+mod.slug
+            });
+          }
+        });
+        params.set("index", (json.pagination.index + 1).toString());
+      }
+
+    }
+    console.log("Done!");
+    return mods;
+  }
+
+  public async scrapeWithId(modIDs: string[]): Promise<ModInfo[]> {
+    const mods = await this.findAllMods(modIDs);
+    console.log("Found "+mods.length+" mods");
+    return mods;
   }
   
 
@@ -129,11 +182,6 @@ export default class Scraper {
     })
     
   }
-}
-
-
-class ScraperWithID extends Scraper {
-  
 }
 
 

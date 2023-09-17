@@ -7,12 +7,20 @@ import Scraper from "./Scraper";
 interface Arguments {
     file?: string;
     help?: boolean;
+    useid?: boolean;
     version?: boolean;
 }
 
 interface Config {
     mods: string[];
     gameVersions: string[];
+    modIDs?: string[];
+}
+
+interface ParseResult {
+    success: boolean;
+    message: string;
+    config?: Config;
 }
 
 
@@ -34,6 +42,7 @@ export default class Main {
     private parseArguments(argv: minimist.ParsedArgs): Arguments {
         const args: Arguments = {
             file: argv.file,
+            useid: argv.id,
             help: argv.help,
             version: argv.version
         }
@@ -41,97 +50,105 @@ export default class Main {
     }
 
     private createExample() {
-        console.log("A config example will be created...");
-        fs.writeFileSync("./config.example.json", JSON.stringify({
-            "mods": [
+
+        const example = {
+            mods: [
                 "mod1",
                 "mod2"
             ],
-            "versions": [
+            versions: [
                 "1.5.2",
                 "1.7.2",
                 "1.8.9",
                 "1.20",
             ],
-            "modIds": [
+            modIds: [
                 1234,
                 5678
             ]
-        }, null, 2));
+        }
 
-        fs.writeFileSync("./config.example.ini", ini.stringify({
-            "mods": ["mod1, mod2"],
-            "gameVersions": ["1.5.2, 1.7.2, 1.8.9, 1.20"],
-            "modIDs": [1234, 5678]
-        }))
+        console.log("A config example will be created...");
+        fs.writeFileSync("./config.example.json", JSON.stringify(example, null, 2));
+
+        fs.writeFileSync("./config.example.ini", ini.stringify(example))
+    }
+    // Hauptmethode, die Dateien parsed
+    private parseFile(_file: string): ParseResult {
+        const extension = path.extname(_file);
+        console.log(_file);
+
+        if (extension === '.ini') {
+            return this.parseIniFile(_file);
+        } else if (extension === '.json') {
+            return this.parseJsonFile(_file);
+        } else {
+            return { success: false, message: "[parseFile] Invalid file type. Only .ini and .json are supported" };
+        }
     }
 
-    private parseFile(_file: string, withIds = false): {success: boolean, message: string, config?: Config} {
-        // Check if file is valid JSON or INI
-        if(path.extname(_file) === ".ini")
-        {
-            const result = {
-                gameVersions: [] as string[],
-                mods: [] as string[],
-                modIDs: [] as string[]
-            }
-            // Parse INI
-            const file = fs.readFileSync(_file).toString();
-            const config = ini.parse(file) as {mods: string[], gameVersions: string[], modIDs: string[]};
-            
-            if(withIds) {
-                if(!Array.isArray(config.modIDs)) {
-                    this.createExample();
-                    return {success: false, message: "Invalid config file. You used the --useid flag but no modIDs were found. Please refer to the example file"};
-                }
-                if(!Array.isArray(config.modIDs) || !Array.isArray(config.gameVersions)) {
-                    this.createExample();
-                    return {success: false, message: "Invalid config file. Please refer to the example file"};
-                }
-                result.modIDs = config.modIDs;
-            }
-            else {
-                if(!Array.isArray(config.mods) || !Array.isArray(config.gameVersions)) {
-                    this.createExample();
-                    return {success: false, message: "Invalid config file. Please refer to the example file"};
-                }
-                result.mods = config.mods;
-            }
+    // Methode für das Parsen von INI-Dateien
+    private parseIniFile(filePath: string): ParseResult {
+        console.log("Parsing INI file");
+        const fileContents = fs.readFileSync(filePath).toString();
+        const config = ini.parse(fileContents) as Config;
 
-            result.gameVersions = config.gameVersions;
+        if (this.arguments.useid) {
+            return this.validateConfigWithIDs(config);
+        } else {
+            return this.validateConfigWithMods(config, "ini");
+        }
+    }
 
-            return {success: true, message: "ini", config: result};
+    // Methode für das Parsen von JSON-Dateien
+    private parseJsonFile(filePath: string): ParseResult {
+        console.log("Parsing JSON file");
+        const fileContents = fs.readFileSync(filePath).toString();
+        let config: Config;
+
+        try {
+            config = JSON.parse(fileContents);
+        } catch (err) {
+            return { success: false, message: "Invalid config file. Please make sure it is valid JSON" };
         }
-        else if(path.extname(_file) === ".json")
-        {
-            // Parse JSON
-            const file = fs.readFileSync(_file).toString();
-            let config: {mods: string[], gameVersions: string[]};
-            try {
-                config = JSON.parse(file) as Config;
-            }
-            catch(err) {
-                return {success: false, message: "Invalid config file. Please make sure it is valid JSON"};
-            }
-            if(!config.mods || !Array.isArray(config.mods)) {
-                return {success: false, message: "Invalid config file. Please refer to the example file"};
-            }
-            if(!config.gameVersions || !Array.isArray(config.gameVersions)) {
-                return {success: false, message: "Invalid config file. Please refer to the example file"};
-            }
-            return {success: true, message: "json", config: config};
+
+        if(this.arguments.useid) {
+            return this.validateConfigWithIDs(config);
         }
-        else {
-            return {success: false, message: "Invalid file type. Only .ini and .json are supported"};
+        
+        return this.validateConfigWithMods(config, "json");
+    }
+
+    // Validierung für den Fall, dass IDs verwendet werden
+    private validateConfigWithIDs(config: Config): ParseResult {
+        if (!Array.isArray(config.gameVersions)) {
+            this.createExample();
+            return { success: false, message: "Invalid config file. Please refer to the example file" };
         }
+        if(!Array.isArray(config.modIDs) && this.arguments.useid) {
+            this.createExample();
+            return { success: false, message: "You used the -i flag, but didn't configure any modIDs. Please refer to the example file" };
+        }
+
+        return { success: true, message: "ini", config: { modIDs: config.modIDs, gameVersions: config.gameVersions, mods: config.mods } };
+    }
+
+    // Validierung für den Fall, dass Mods verwendet werden
+    private validateConfigWithMods(config: Config, filetype: "json" | "ini"): ParseResult {
+        console.log("validating config json file");
+        if (!Array.isArray(config.mods) || !Array.isArray(config.gameVersions)) {
+            this.createExample();
+            return { success: false, message: "Invalid config file. Please refer to the example file" };
+        }
+
+        return { success: true, message: filetype, config: { mods: config.mods, gameVersions: config.gameVersions } };
     }
 
     private checkConfigFiles(): {success: boolean, message: string} {
 
-        if(this.arguments.file)
-        {
+        if(this.arguments.file) {
             if(path.extname(this.arguments.file) === ".ini" || path.extname(this.arguments.file) === ".json") {
-                return {success: true, message: path.extname(this.arguments.file).slice(1)};
+                return {success: true, message: this.arguments.file};
             }
             else {
                 return {success: false, message: "Invalid file type. Only .ini and .json are supported"};
@@ -141,6 +158,8 @@ export default class Main {
         const iniExists = fs.existsSync("./config.ini");
         const jsonExists = fs.existsSync("./config.json");
 
+
+        console.log(iniExists, jsonExists);
 
         if(iniExists && jsonExists)
         {
@@ -164,26 +183,54 @@ export default class Main {
     public constructor(argv: minimist.ParsedArgs)
     {
         this.arguments = this.parseArguments(argv);
+        if(this.arguments.help) {
+            console.log("Usage: curseforge-scraper [options]");
+            console.log("Options:");
+            console.log("  -f, --file <file>    Specify a config file");
+            console.log("  -h, --help           Display this help message");
+            console.log("  -i, --id             Use mod IDs instead of names");
+            console.log("  -v, --version        Display the version");
+            process.exit(0);
+        }
+        if(this.arguments.version) {
+            const packageJson = JSON.parse(fs.readFileSync("./package.json").toString());
+            console.log(packageJson.version);
+            process.exit(0);
+        }
+        if(this.arguments.useid) {
+            console.log("Using mod IDs instead of names");
+        }
         const configFiles = this.checkConfigFiles();
         if(!configFiles.success)
         {
             console.log(configFiles.message);
             process.exit(1);
         }
-
-        const parseResult = this.parseFile(configFiles.message, argv.useid);
+        const parseResult = this.parseFile(configFiles.message);
         if(!parseResult.success) {
             console.log(parseResult.message);
             process.exit(1);
         }
-
         this.config = parseResult.config!;
 
+        if(this.config.modIDs === undefined && this.arguments.useid) {
+            console.log("No mod IDs found in config file");
+            process.exit(1);
+        }
+
         console.log(this.config.gameVersions);
+        const scraper = new Scraper(this.baseURL, this.path, this.parameters, this.config.mods, this.config.gameVersions, this.arguments.useid);
 
-        const scraper = new Scraper(this.baseURL, this.path, this.parameters, this.config.mods, this.config.gameVersions);
+        this.arguments.useid ? scraper.scrapeWithId(this.config.modIDs!).then((mods) => {
+            if(mods === undefined) {
+                console.log("An error occured while scraping");
+                process.exit(1);
+            }
+            scraper.displayIncompatibleMods(mods);
+            scraper.save(mods);
 
-        scraper.scrape().then((mods) => {
+            console.log("Your mods have been saved to mods.json")
+        }) : scraper.scrape().then((mods) => {
             if(mods === undefined) {
                 console.log("An error occured while scraping");
                 process.exit(1);
@@ -193,6 +240,5 @@ export default class Main {
 
             console.log("Your mods have been saved to mods.json")
         });
-
     }
 }
