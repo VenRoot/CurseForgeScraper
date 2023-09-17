@@ -203,12 +203,12 @@ export default class Main {
         const configFiles = this.checkConfigFiles();
         if(!configFiles.success)
         {
-            console.log(configFiles.message);
+            console.log("[checkConfigFiles]: "+configFiles.message);
             process.exit(1);
         }
         const parseResult = this.parseFile(configFiles.message);
         if(!parseResult.success) {
-            console.log(parseResult.message);
+            console.log("[parseFile]: "+parseResult.message);
             process.exit(1);
         }
         this.config = parseResult.config!;
@@ -219,7 +219,7 @@ export default class Main {
         }
 
         console.log(this.config.gameVersions);
-        const scraper = new Scraper(this.baseURL, this.path, this.parameters, this.config.mods, this.config.gameVersions, this.arguments.useid);
+        const scraper = new Scraper(this.baseURL, this.path, this.parameters, this.config.mods ?? this.config.modIDs, this.config.gameVersions, this.arguments.useid);
 
         this.arguments.useid ? scraper.scrapeWithId(this.config.modIDs!).then((mods) => {
             if(mods === undefined) {
