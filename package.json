@@ -13,6 +13,12 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "@types/ini": "^1.3.31",
+    "@types/minimist": "^1.2.2",
     "@types/node": "^20.6.0"
+  },
+  "dependencies": {
+    "ini": "^4.1.1",
+    "minimist": "^1.2.8"
   }
 }

@@ -1,23 +1,28 @@
 import ResponseData from "./curseforge.type";
 import fs from "fs/promises";
+
 export default class Scraper {
   private baseURL: string;
   private path: string;
   private parameters: Record<string, string>;
-  private modNames: string[];
   public URLs: string[];
+  private gameVersions: string[];
+  private useId: boolean;
 
   constructor(
     baseURL: string,
     path: string,
     parameters: Record<string, string>,
-    modNames: string[]
+    modNames: string[],
+    gameVersions: string[],
+    useId = false
   ) {
     this.baseURL = baseURL;
     this.path = path;
     this.parameters = parameters;
-    this.modNames = modNames;
     this.URLs = [];
+    this.gameVersions = gameVersions;
+    this.useId = useId;
 
     modNames.forEach((modName) => {
       const parameter: Record<string, string> = {
@@ -28,6 +33,10 @@ export default class Scraper {
         this.baseURL + this.path + new URLSearchParams(parameter).toString();
         this.URLs.push(url);
     });
+  }
+
+  public addVersions(versions: string[]) {
+    this.parameters.gameVersion = versions.join(",");
   }
 
   private getGameVersionsFromResponse(data: ModResponse): string[] {
@@ -46,6 +55,58 @@ export default class Scraper {
   
     return Array.from(gameVersionsSet);
   }
+
+  public async findAllMods(modIDs: string[]) {
+    const parameters: Record<string, string> = {
+      "gameId": "432", // 432 = Minecraft
+      "classId": "6", //Only show mods
+      "index": "0",
+      "pageSize": "50",
+      "sortField": "1" 
+    };
+
+    const results = [] as {modId: number, found: boolean}[];
+    for(const modId of modIDs) {
+      results.push({modId: parseInt(modId), found: false});
+    }
+
+    const params = new URLSearchParams(parameters);
+    const mods = [] as ModInfo[];
+    console.log("Fetching all mods... this may take a while");
+    while(results.some((result) => !result.found)) {
+      const response = await fetch(this.baseURL + this.path + params.toString());
+      const json = (await response.json()) as ModResponse;
+      if(json.data === undefined) {
+        // End of results
+        break;
+      }
+      else {
+        console.log(json.pagination.index);
+        json.data.find(mod => {
+          const result = results.find(result => result.modId === mod.id);
+          if(result !== undefined) {
+            result.found = true;
+            mods.push({
+              name: mod.name,
+              id: mod.id,
+              gameVersions: this.getGameVersionsFromResponse(json),
+              url: "https://www.curseforge.com/minecraft/mc-mods/"+mod.slug
+            });
+          }
+        });
+        params.set("index", (json.pagination.index + 1).toString());
+      }
+
+    }
+    console.log("Done!");
+    return mods;
+  }
+
+  public async scrapeWithId(modIDs: string[]): Promise<ModInfo[]> {
+    const mods = await this.findAllMods(modIDs);
+    console.log("Found "+mods.length+" mods");
+    return mods;
+  }
   
 
   public async scrape(): Promise<ModInfo[]> {
@@ -61,13 +122,14 @@ export default class Scraper {
           return;
         }
 
-        let gameVersions = this.getGameVersionsFromResponse(json);
+        this.gameVersions = this.getGameVersionsFromResponse(json);
+        
 
         const mod: ModInfo = {
           name: json.data[0].name,
           id: json.data[0].id,
           // gameVersions: json.data[0].latestFileDetails.gameVersions,
-          gameVersions: gameVersions,
+          gameVersions: this.gameVersions,
           url: "https://www.curseforge.com/minecraft/mc-mods/"+json.data[0].slug
         };
 
@@ -108,16 +170,20 @@ export default class Scraper {
     return [mostCommonVersion, maxCount];
   }
 
-  public displayIncompatibleMods(mods: ModInfo[], gameVersion: string) {
-    let localMods = mods.filter((mod) => mod.gameVersions.includes(gameVersion));
-    console.log(`Mods incompatible with ${gameVersion}: (${localMods.length})`);
+  public displayIncompatibleMods(mods: ModInfo[]) {
+    this.gameVersions.forEach((gameVersion) => {
+      let localMods = mods.filter((mod) => mod.gameVersions.includes(gameVersion));
+      console.log(`Mods incompatible with ${gameVersion}: (${localMods.length +"/"+ mods.length})`);
 
-    for (const mod of localMods) {
-        console.log(`- ${mod.name} (ID: ${mod.id})`);
-    }
-    console.log("\n");
+      for (const mod of localMods) {
+          console.log(`- ${mod.name} (ID: ${mod.id})`);
+      }
+      console.log("\n");
+    })
+    
   }
 }
+
 
 interface ModResponse {
   data: ResponseData[];
