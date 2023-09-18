@@ -39,8 +39,9 @@ export default class Scraper {
     this.parameters.gameVersion = versions.join(",");
   }
 
-  private getGameVersionsFromResponse(data: ModResponse): string[] {
+  private getGameVersionsFromResponse(data: ModResponse): [string[], string] {
     let gameVersionsSet: Set<string> = new Set();
+    let flavor: Set<"Fabric" | "Forge" | "Both"> = new Set();
   
     for (const recentFile of data.data[0].websiteRecentFiles) {
       for (const file of recentFile.files) {
@@ -49,11 +50,18 @@ export default class Scraper {
           if (/^\d+\.\d+(\.\d+)?$/.test(version)) {
             gameVersionsSet.add(version);
           }
+          else if(version === "Fabric" || version === "Forge") {
+            flavor.add(version);
+          }
         }
       }
     }
-  
-    return Array.from(gameVersionsSet);
+
+    return [Array.from(gameVersionsSet), flavor.size === 2 ? "Both" : flavor.values().next().value as "Fabric" | "Forge" | "Both"];
+  }
+
+  private getFlavor() {
+
   }
 
   public async findAllMods(modIDs: string[]) {
@@ -85,12 +93,14 @@ export default class Scraper {
         json.data.find(mod => {
           const result = results.find(result => result.modId === mod.id);
           if(result !== undefined) {
+            const versions = this.getGameVersionsFromResponse(json);
             result.found = true;
             mods.push({
               name: mod.name,
               id: mod.id,
-              gameVersions: this.getGameVersionsFromResponse(json),
-              url: "https://www.curseforge.com/minecraft/mc-mods/"+mod.slug
+              gameVersions: versions[0],
+              url: "https://www.curseforge.com/minecraft/mc-mods/"+mod.slug,
+              flavor: versions[1] as "Fabric" | "Forge" | "Both"
             });
           }
         });
@@ -122,7 +132,7 @@ export default class Scraper {
           return;
         }
 
-        this.gameVersions = this.getGameVersionsFromResponse(json);
+        this.gameVersions = this.getGameVersionsFromResponse(json)[0];
         
 
         const mod: ModInfo = {
@@ -130,7 +140,8 @@ export default class Scraper {
           id: json.data[0].id,
           // gameVersions: json.data[0].latestFileDetails.gameVersions,
           gameVersions: this.gameVersions,
-          url: "https://www.curseforge.com/minecraft/mc-mods/"+json.data[0].slug
+          url: "https://www.curseforge.com/minecraft/mc-mods/"+json.data[0].slug,
+          flavor: this.gameVersions[1] as "Fabric" | "Forge" | "Both"
         };
 
         mods.push(mod);
@@ -173,10 +184,13 @@ export default class Scraper {
   public displayIncompatibleMods(mods: ModInfo[]) {
     this.gameVersions.forEach((gameVersion) => {
       let localMods = mods.filter((mod) => mod.gameVersions.includes(gameVersion));
-      console.log(`Mods incompatible with ${gameVersion}: (${localMods.length +"/"+ mods.length})`);
+      let fabricMods = localMods.filter((mod) => mod.flavor === "Fabric");
+      let forgeMods = localMods.filter((mod) => mod.flavor === "Forge");
+      let bothMods = localMods.filter((mod) => mod.flavor === "Both");
+      console.log(`Mods compatible with ${gameVersion}: (${localMods.length +"/"+ mods.length}) (Fabric: ${fabricMods.length}) (Forge: ${forgeMods.length}) (Both: ${bothMods.length})`);
 
       for (const mod of localMods) {
-          console.log(`- ${mod.name} (ID: ${mod.id})`);
+          console.log(`- ${mod.name} (ID: ${mod.id}) (ModLoader: ${mod.flavor})`);
       }
       console.log("\n");
     })
@@ -199,4 +213,5 @@ interface ModInfo {
   id: number;
   gameVersions: string[];
   url: string;
+  flavor: "Fabric" | "Forge" | "Both";
 }
